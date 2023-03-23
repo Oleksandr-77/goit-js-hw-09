@@ -1,80 +1,79 @@
 
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
-import { Notify } from 'notiflix/build/notiflix-notify-aio';
+import Notiflix from 'notiflix';
 
 const refs = {
-  timeValues: document.querySelectorAll('.value'),
-  startBtn: document.querySelector('button[data-start]'),
-  daysEl: document.querySelector('span[data-days]'),
-  hoursEl: document.querySelector('span[data-hours]'),
-  minutesEl: document.querySelector('span[data-minutes]'),
-  secondsEl: document.querySelector('span[data-seconds]'),
+  datetimePicker: document.querySelectorAll('#datetime-picker'),
+  startBtn: document.querySelector('[data-start]'),
+  daysEl: document.querySelector('[data-days]'),
+  hoursEl: document.querySelector('[data-hours]'),
+  minutesEl: document.querySelector('[data-minutes]'),
+  secondsEl: document.querySelector('[data-seconds]'),
 };
 
-let ms = 0;
-let currentTime = null;
-let setTime = null;
-let intervalId = null;
-
-const options = {
+flatpickr(refs.datetimePicker, {
   enableTime: true,
   time_24hr: true,
   defaultDate: new Date(),
   minuteIncrement: 1,
-  onClose(selectedDates) {
-    setTime = selectedDates[0];
-    currentTime = Date.now;
+  onClose([selectedDates]) {
 
-    if (options.defaultDate.getTime() > selectedDates[0].getTime()) {
-      Notify.failure('Please chose a date in the future');
-      return;
-    }
-    refs.startBtn.disabled = false;
+  if (selectedDates < new Date()) {
+      Notiflix.Notify.failure('Please choose a date in the future');
+      refs.startBtn.disabled = true;
+  } else {
+      refs.startBtn.disabled = false;
+      refs.startBtn.addEventListener('click', () => {
+      startCountdown(selectedDates);
+      });
+  }
   },
+});
+
+function startCountdown(selectedDates) {
+
+  const countdownInterval = setInterval(() => {
+      const currentDate = new Date();
+      const differenceInMs = Math.floor(selectedDates - currentDate);
+      const formatedDifferenceInMs = convertMs(differenceInMs);
+
+      if (differenceInMs <= 0) {
+          clearInterval(countdownInterval);
+          resetValues();
+
+      } else {
+          populateValues(formatedDifferenceInMs)
+      }
+  }, 1000);
+};
+function populateValues(formatedDifferenceInMs) {
+  refs.secondsEl.textContent = formatedDifferenceInMs.seconds.toString().padStart(2, '0');
+  refs.minutesEl.textContent = formatedDifferenceInMs.minutes.toString().padStart(2, '0');
+  refs.hoursEl.textContent = formatedDifferenceInMs.hours.toString().padStart(2, '0');
+  refs.daysEl.textContent = formatedDifferenceInMs.days.toString().padStart(2, '0');
 };
 
-refs.startBtn.addEventListener('click', onStartClick);
-refs.startBtn.disabled = true;
-
-flatpickr('#datetime-picker', options);
+function resetValues() {
+  refs.daysEl.textContent = '00';
+  refs.hoursEl.textContent = '00';
+  refs.minutesEl.textContent = '00';
+  refs.secondsEl.textContent = '00';
+};
 
 function convertMs(ms) {
-  // Number of milliseconds per unit of time
   const second = 1000;
   const minute = second * 60;
   const hour = minute * 60;
   const day = hour * 24;
 
-  // Remaining days
-  const days = addLeadingZero(Math.floor(ms / day));
-  // Remaining hours
-  const hours = addLeadingZero(Math.floor((ms % day) / hour));
-  // Remaining minutes
-  const minutes = addLeadingZero(Math.floor(((ms % day) % hour) / minute));
-  // Remaining seconds
-  const seconds = addLeadingZero(
-    Math.floor((((ms % day) % hour) % minute) / second)
-  );
+  const days = Math.floor(ms / day);
+
+  const hours = Math.floor((ms % day) / hour);
+
+  const minutes = Math.floor(((ms % day) % hour) / minute);
+
+  const seconds = Math.floor((((ms % day) % hour) % minute) / second);
 
   return { days, hours, minutes, seconds };
-}
-
-function onStartClick() {
-  intervalId = setInterval(() => {
-    currentTime = Date.now();
-    ms = setTime - currentTime;
-    let time = convertMs(ms);
-    refs.daysEl.textContent = time.days;
-    refs.hoursEl.textContent = time.hours;
-    refs.minutesEl.textContent = time.minutes;
-    refs.secondsEl.textContent = time.seconds;
-    if (ms < 1000) {
-      clearInterval(intervalId);
-    }
-  }, 1000);
-}
-
-function addLeadingZero(value) {
-  return String(value).padStart(2, '0');
-}
+};
